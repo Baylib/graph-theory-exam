@@ -36,7 +36,9 @@ export default {
                         svgHeight: 600
                     },
                     selectedNode: null,
+                    selectedTargetNode : null,
                     edit_mode : false,
+                    transformation : "",
                 };
             },
             mounted: function () {
@@ -47,25 +49,10 @@ export default {
               var that = this;
               var graph={
                   "nodes": [
-                      {
-                          "id": "Alice"
-                      },
-                      {
-                          "id": "Bob"
-                      },
-                      {
-                          "id": "Carol"
-                      }
+                      
                   ],
                   "links": [
-                      {
-                          "source": 0,
-                          "target": 1
-                      },
-                      {
-                          "source": 1,
-                          "target": 2
-                      }
+                      
                   ]
               }
               that.graph = graph;
@@ -81,17 +68,15 @@ export default {
                     if (that.edit_mode){ 
                       var pointer = d3.pointer(event,svg.node());
                       console.log("pointer :", pointer[0], pointer[1])
-                      var trans = getTransformation(d3.select(".nodes").attr("transform"))
-                      var transX = trans.translateX
-                      var transY = trans.translateY
-                      var scaleX = trans.scaleX
-                      var scaleY = trans.scaleY
-                      //console.log(transX,transY,scaleY,scaleX)
-                      //console.log((pointer[0] - transX) /scaleX);
-                      //that.graph.nodes.push({x : pointer[0], y: pointer[1], id: that.graph.nodes.length});
-                      that.graph.nodes.push({x : (pointer[0] - transX) /scaleX, y: (pointer[1] - transY) / scaleY, id: that.graph.nodes.length});
-                      //that.graph.links.push({});
-                      //that.graph.links.pop();
+                      that.transformation = d3.select(".nodes").attr("transform")
+                      console.log("transfo :::", that.transforms)
+                      var newNode = {
+                        x : (pointer[0] - that.transforms.translateX) /that.transforms.scaleX,
+                        y: (pointer[1] - that.transforms.translateY) / that.transforms.scaleY, 
+                        id: that.graph.nodes.length,
+                        "name": that.graph.nodes.length
+                      }
+                      that.graph.nodes.push(newNode);
                     }
                 })
                 .call(d3.zoom()
@@ -137,16 +122,133 @@ export default {
                   }
                 }
               }
+              
+            },
+            computed: {
+              
+                nodes: function () {
+                    var that = this
+                    console.log("calculatednodes")
+                    if (that.graph) {
+                        d3.selectAll("circle").remove()
+                        return d3.select(".nodes")
+                            .selectAll("circle")
+                            .data(that.graph.nodes)
+                            .enter().append("circle")
+                            .attr("r", 5)
+                            .attr("fill", function (d ,i) {
+                                return that.color(i);
+                            })
+                            .on("mousedown", function(event,d) {
+                              console.log("on mouse down", event, d)
+                              if (!that.edit_mode) {
+                                //event.stopPropagation();
+                                //that.drawing_line = true;
+                                // start visu algo
+                              }
+                            })
+                            .on("mouseover",function(event,d){
+                              console.log("mouseovernode",event,d)
+                              // pop up if not drag
+                              if (that.edit_mode){
+                                that.selectedTargetNode = d
+                              }
+                            })
+                            .on("mouseout", function(){
+                              if (that.edit_mode){
+                              that.selectedTargetNode = null;
+                              }
+                            })
+                            .call(d3.drag()
+                                .on("start", function dragstarted(event, d) {
+                                  console.log("dragstart", d)
+                                  if (!that.edit_mode){
+                                    
+                                    if (!d.active) that.simulation.alphaTarget(0.3).restart()
+                                    d.fx = d.x
+                                    d.fy = d.y
+                                  } else {
+                                    that.selectedNode = d;
+                                  }
+                                })
+                                .on("drag", function dragged(event, d) {
+                                  //console.log("drag", event, d)
+                                  if (!that.edit_mode){ 
+                                    d.fx = event.x
+                                    d.fy = event.y
+                                  }
+                                })
+                                .on("end", function dragended(event, d) {
+                                  console.log("end", event, d)
+                                  if (!that.edit_mode){
+                                    
+                                    if (!d.active) that.simulation.alphaTarget(0)
+                                    d.fx = null
+                                    d.fy = null
+                                  } else {
+                                    if (d!= that.selectedTargetNode){
+                                      console.log("end drag", that.selectedNode)
+                                      if (that.selectedTargetNode == null){
+                                        var pointer = d3.pointer(event,d3.select("svg").node());
+                                        console.log("pointer :", pointer[0], pointer[1])
+                                        that.transformation = d3.select(".nodes").attr("transform")
+                                        console.log("transfo :::", that.transforms)
+                                        var newNode = {
+                                          x : (pointer[0] - that.transforms.translateX) /that.transforms.scaleX,
+                                          y: (pointer[1] - that.transforms.translateY) / that.transforms.scaleY, 
+                                          id: that.graph.nodes.length,
+                                          "name": that.graph.nodes.length
+                                        }
+                                        that.graph.nodes.push(newNode)
+                                        that.graph.links.push({"source":that.selectedNode,"target":newNode})
+                                      } else {
+                                          that.graph.links.push({"source":that.selectedNode,"target":that.selectedTargetNode})
+                                        console.log(that.graph.links)
+                                      }
 
-              //https://stackoverflow.com/questions/38224875/replacing-d3-transform-in-d3-v4
-              function getTransformation(transform) {
+                                      
+                                    }
+                                  }
+                                })).on("mouseup",function(){console.log("on mouse up!")})
+                                
+                    }
+                    return {}
+                },
+                links: function () {
+                    console.log("calculatedlinks")
+                    var that = this
+                    if (that.graph) {
+                        d3.selectAll("line").remove()
+                        return d3.select(".links")
+                            .selectAll("line")
+                            .data(that.graph.links)
+                            .enter().append("line")
+                            .attr("stroke-width", function (d) { return Math.sqrt(d.value); })
+                            .attr("stroke-opacity", 0.6)
+                            .attr("stroke", "#999")
+                    }
+                    return {}
+                },
+                transforms: function(){
                   // Create a dummy g for calculation purposes only. This will never
                   // be appended to the DOM and will be discarded once this function 
                   // returns.
+                  var that = this;
+                  if (that.transformation == null || that.transformation == ""){
+                    return {
+                      translateX: 0,
+                      translateY: 0,
+                      rotate: 0,
+                      skewX: 0,
+                      scaleX: 1,
+                      scaleY: 1
+                    }
+                  }
+                  
                   var g = document.createElementNS("http://www.w3.org/2000/svg", "g");
                   
                   // Set the transform attribute to the provided string value.
-                  g.setAttributeNS(null, "transform", transform);
+                  g.setAttributeNS(null, "transform", that.transformation);
                   
                   // consolidate the SVGTransformList containing all transformations
                   // to a single SVGTransform of type SVG_TRANSFORM_MATRIX and get
@@ -176,81 +278,12 @@ export default {
                     scaleY: scaleY
                   };
                 }
-              
-            },
-            computed: {
-              
-                nodes: function () {
-                    var that = this
-                    console.log("calculatednodes")
-                    if (that.graph) {
-                        d3.selectAll("circle").remove()
-                        return d3.select(".nodes")
-                            .selectAll("circle")
-                            .data(that.graph.nodes)
-                            .enter().append("circle")
-                            .attr("r", 5)
-                            .attr("fill", function (d ,i) {
-                                return that.color(i);
-                            })
-                            .on("mousedown", function(event,d) {
-                              if (that.edit_mode) {
-                                that.selected_node = d;
-                              }
-                              if (!that.edit_mode) {
-                                //event.stopPropagation();
-                                //that.drawing_line = true;
-                              }
-                            })
-                            .call(d3.drag()
-                                .on("start", function dragstarted(d, event) {
-                                  if (!that.edit_mode){
-                                    console.log("dragstarted")
-                                    if (!event.active) that.simulation.alphaTarget(0.3).restart()
-                                    d.subject.fx = d.subject.x
-                                    d.subject.fy = d.subject.y
-                                  }
-                                })
-                                .on("drag", function dragged(d) {
-                                  if (!that.edit_mode){ 
-                                    console.log("dragcontinued")
-                                    d.subject.fx = d.x
-                                    d.subject.fy = d.y
-                                  }
-                                })
-                                .on("end", function dragended(d, event) {
-                                  if (!that.edit_mode){
-                                    console.log("dragended")
-                                    if (!event.active) that.simulation.alphaTarget(0)
-                                    d.subject.fx = null
-                                    d.subject.fy = null
-                                  }
-                                }))
-                    }
-                    return {}
-                },
-                links: function () {
-                    console.log("calculatedlinks")
-                    var that = this
-                    if (that.graph) {
-                        return d3.select(".links")
-                            .selectAll("line")
-                            .data(that.graph.links)
-                            .enter().append("line")
-                            .attr("stroke-width", function (d) { return Math.sqrt(d.value); })
-                            .attr("stroke-opacity", 0.6)
-                            .attr("stroke", "#999")
-                    }
-                    return {}
-                },
 
             },
             updated: function () {
                 console.log("updated")
-                
+                //console.log(that.links)
                 var that = this;
-                
-
                 that.simulation.nodes(that.graph.nodes).on('tick', function ticked() {
                     that.links
                         .attr("x1", function (d) { return d.source.x; })
