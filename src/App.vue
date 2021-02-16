@@ -1,9 +1,9 @@
 <template>
   <div id="app">
-    <div>
-      <div class="controls">
+    <div class="md:flex grid grid-rows-3 grid-flow-col gap-4">
+      <div class="controls row-span-3 ...">
         <div>
-          <p>Toggle edit mode : Shift</p>
+          <p>Toggle edit mode : {{ shiftKeySymbol }}</p>
           <p>Add node by clicking</p>
           <p>Click and drag to add an edge</p>
           <p>Delete Node : Delete</p>
@@ -13,31 +13,42 @@
             <input type="range" v-model="settings.width" min="0" max="100" />
         </div>
         <div>
+          <input type="checkbox" id="checkbox-directed" v-model="directed">
+          <label v-if="directed" for="checkbox"> Undirected </label>
+          <label v-else for="checkbox"> Directed </label>
+          
+        </div>
+        <div>
           <button v-on:click="resetGraph">Reset Graph</button>
         </div>
       </div>
-      <div class="svg-container" :style="{width: settings.width + '%'}">
-        <svg id="svg" pointer-events="all" viewBox="0 0 960 600" preserveAspectRatio="xMinYMin meet">
+      <div class="svg-container col-span-2 ..." :style="{width: settings.width + '%'}">
+        <svg pointer-events="all" viewBox="0 0 960 600" preserveAspectRatio="xMinYMin meet">
           <g :id="links"></g>
           <g :id="nodes"></g>
         </svg>
       </div>
+    <div id="svg-adjancency-matrix" class="svg-container row-span-2 col-span-2" :style="{width: settings.width + '%'}">
+    <GraphVue/>
     </div>
+  </div>
   </div>
 </template>
 
 <script>
 import * as d3 from 'd3'
 
+import GraphVue from './components/GraphVue.vue'
+
 export default {
   name: 'App',
   components: {
+    GraphVue
   },
   data: function () {
                 return {
                     graph: null,
                     simulation: null,
-                    color: d3.scaleOrdinal(d3.schemeCategory10),
                     settings: {
                         strokeColor: "#29B5FF",
                         width: 100,
@@ -49,13 +60,16 @@ export default {
                     selectedTargetNode : null,
                     edit_mode : false,
                     transformation : "",
-                };
+                    directed:false,
+                    shiftKeySymbol : `<shift>`
+                }
             },
   mounted: function () {
     console.log("mounted");
     d3.select(window)
       .on("keydown", keydown)
     var svg = d3.select("svg");
+    d3.select("#svg-adjancency-matrix").append("svg").style("pointer-events","all").attr("viewBox","0 0 960 600").attr("preserveAspectRatio","xMinYMin meet")
     var that = this;
     var graph={
         "nodes": [
@@ -104,7 +118,7 @@ export default {
     
 
     that.simulation = d3.forceSimulation(that.graph.nodes)
-        .force("link", d3.forceLink(that.graph.links).distance(100).strength(0.1))
+        .force("link", d3.forceLink(that.graph.links).distance(50).strength(0.1))
         .force("charge", d3.forceManyBody())
         .force("center", d3.forceCenter(that.settings.svgWigth / 2, that.settings.svgHeight / 2)).stop();
         
@@ -230,9 +244,9 @@ export default {
                                 "name": that.graph.nodes.length
                               }
                               that.graph.nodes.push(newNode)
-                              that.graph.links.push({"source":that.selectedNode,"target":newNode})
+                              that.graph.links.push({"source":that.selectedNode,"target":newNode,"weight":1})
                             } else {
-                                that.graph.links.push({"source":that.selectedNode,"target":that.selectedTargetNode})
+                                that.graph.links.push({"source":that.selectedNode,"target":that.selectedTargetNode,"weight":1})
                               console.log(that.graph.links)
                             }
                             that.selectedNode = null;
@@ -307,8 +321,42 @@ export default {
           scaleX: scaleX,
           scaleY: scaleY
         };
+      },
+      //https://bl.ocks.org/KingOfCramers/32bbcd8c360e6d8aa0d5b7a50725fe73
+      adjacencyMatrix: function(){
+        let that = this
+        console.log("calc adj matrix")
+        d3.select("#svg-adjancency-matrix").select("svg").selectAll("g").remove()
+        console.log("not recalc?", that.graph.nodes, that.graph.edges)
+        
+        let edgeHash = {};
+        if (!that.graph.nodes){ return null}
+        that.graph.links.forEach(edge =>{
+          var id = edge.source.id + "-" + edge.target.id
+          edgeHash[id] = edge
+        })
+            
+        let matrix = []
+        that.graph.nodes.forEach((source, a) => {
+          that.graph.nodes.forEach((target, b) => {
+            var grid = {id: source.id + "-" + target.id, x: b, y: a, weight: 0};
+            
+            if(edgeHash[grid.id]){
+              var linkWeight =  edgeHash[grid.id].weight
+              grid.weight = linkWeight;
+              if (!that.directed) {
+                var gridundirected = {id: target.id + "-" + source.id, x: a, y: b, weight: 0};
+                gridundirected.weight = linkWeight;
+                matrix.push(gridundirected)
+              }
+            }
+            matrix.push(grid)
+            
+           })
+        })
+        console.log(matrix)
+        return matrix
       }
-
   },
   updated: function () {
       console.log("updated")
@@ -326,12 +374,61 @@ export default {
               .attr("cy", function (d) { return d.y; });
       });
       that.simulation.alphaTarget(0).restart()
+
+
+      //
+  console.log("addmatrix in  update :", that.adjacencyMatrix);
+  if (that.adjacencyMatrix){
+    var svgAdjMatrix = d3.select("#svg-adjancency-matrix").select("svg") 
+    console.log(svgAdjMatrix)
+    svgAdjMatrix.append("g")
+      .attr("transform","translate(50,50)")
+      .attr("id","adjacencyG")
+      .selectAll("rect")
+      .data(that.adjacencyMatrix)
+      .enter()
+      .append("rect")
+      .attr("class","grid")
+      .attr("width",35)
+      .attr("height",35)
+      .attr("x", d=> d.x*35)
+      .attr("y", d=> d.y*35)
+      .style("fill-opacity", d=> d.weight * .2)
+      .style("stroke","#9A8B7A")
+      .style("stroke-width","1px")
+      .style("fill","#CF7D1C")
       
+    svgAdjMatrix.append("g")
+      .attr("transform","translate(50,45)")
+      .selectAll("text")
+      .data(that.graph.nodes)
+      .enter()
+      .append("text")
+      .attr("x", (d,i) => i * 35 + 17.5)
+      .text(d => d.id)
+      .style("text-anchor","middle")
+      .style("font-size","10px")
+      
+      svgAdjMatrix.append("g").attr("transform","translate(45,50)")
+      .selectAll("text")
+      .data(that.graph.nodes)
+      .enter()
+      .append("text")
+      .attr("y",(d,i) => i * 35 + 17.5)
+      .text(d => d.id)
+      .style("text-anchor","end")
+      .style("font-size","10px")
+      .attr("fill","#EBD8C1")
+    }
   },
   methods:{
     resetGraph: function(){
       this.graph = {"nodes":[], "links":[]}
+      d3.select("#svg-adjancency-matrix").select("svg").selectAll("g").remove()
     }
+  },
+  provide:{
+    graphdata : 'Adjancency Matrix :'
   }
 }
 
