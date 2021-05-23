@@ -3,7 +3,7 @@
     <p class="text-base text-center md:text-7xl font-mono">Graftit</p>
     <div class="flex grid grid-cols-none lg:grid-cols-2 gap-2">
       <div
-        class="svg-container mx-2 border-8 border-indigo-200 p-4 rounded overflow-hidden shadow-lg"
+        class="svg-container mx-2 border-2 border-indigo-200 p-4 rounded overflow-hidden shadow-lg"
         :style="{ width: settings.width + '%' }"
       >
         <svg
@@ -17,10 +17,10 @@
       </div>
       <div
         id="svg-adjancency-matrix"
-        class="svg-container mx-2 border-8 border-indigo-200 p-4 rounded overflow-hidden shadow-lg"
+        class="svg-container mx-2 border-2 border-indigo-200 p-4 rounded overflow-hidden shadow-lg"
         :style="{ width: settings.width + '%' }"
       >
-        <GraphVue />
+
       </div>
     </div>
 
@@ -63,13 +63,10 @@
 <script>
 import * as d3 from "d3";
 
-import GraphVue from "./components/GraphVue.vue";
+
 
 export default {
   name: "App",
-  components: {
-    GraphVue,
-  },
   data: function() {
     return {
       graph: null,
@@ -587,19 +584,26 @@ export default {
           )
         )
         .on("tick", function ticked() {
-          that.links
-            .attr("x1", function(d) {
-              return d.source.x;
-            })
-            .attr("y1", function(d) {
-              return d.source.y;
-            })
-            .attr("x2", function(d) {
-              return d.target.x;
-            })
-            .attr("y2", function(d) {
-              return d.target.y;
-            });
+          that.links.attr("d", function(d) {
+            var dx = d.target.x - d.source.x,
+              dy = d.target.y - d.source.y,
+              dr = Math.sqrt(dx * dx + dy * dy);
+
+            return (
+              "M" +
+              d.source.x +
+              "," +
+              d.source.y +
+              "A" +
+              dr +
+              "," +
+              dr +
+              " 0 0,1 " +
+              d.target.x +
+              "," +
+              d.target.y
+            );
+          });
 
           that.nodes
             .attr("cx", function(d) {
@@ -614,10 +618,7 @@ export default {
       //that.simulation.start();
       that.simulation.alphaTarget(1).restart();
     },
-  },
-  provide: {
-    graphdata: "Adjancency Matrix :",
-  },
+  }
 };
 </script>
 
