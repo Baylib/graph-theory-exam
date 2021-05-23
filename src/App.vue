@@ -1,9 +1,45 @@
 <template>
-  <div id="app" class="bg-gray-800">
-    <p class="text-base text-center md:text-7xl font-mono">Graftit</p>
-    <div class="flex grid grid-cols-none lg:grid-cols-2 gap-2">
+  <div id="app" class="h-screen bg-green-100">
+    <div>
+    <div class=" rounded overflow-hidden   flex flex-auto px-6  py-4">
+      <div class="px-6  py-4 flex grid sd:grid-cols-none grid-cols-4 bg-pink-700 mx-auto  gap-2">
+        <div class="px-2">
+          <p>Toggle edit mode : {{ shiftKeySymbol }}</p>
+          <p>Add node by clicking</p>
+          <p>Click and drag to add an edge</p>
+          <p>Delete Node : Delete</p>
+        </div>
+
+        
+        <div class="px-2">
+          <input type="checkbox" id="checkbox-directed" v-model="directed" />
+          <label v-if="directed" for="checkbox"> Directed </label>
+          <label v-else for="checkbox"> Undirected </label>
+        </div>
+        <div>
+        <button
+          class="h-12 px-6 m-2 text-lg text-indigo-100 transition-colors duration-150 bg-yellow-700 rounded-lg focus:shadow-outline hover:bg-yellow-800"
+          v-on:click="forceLayout"
+        >
+          ForceLayout
+        </button>
+        </div>
+        <div class="px-2">
+          <button
+            class="h-12 px-6 m-2 text-lg text-indigo-100 transition-colors duration-150 bg-yellow-700 rounded-lg focus:shadow-outline hover:bg-yellow-800"
+            v-on:click="resetGraph"
+          >
+            Reset Graph
+          </button>
+        </div>
+        
+      </div>
+    </div>
+    <div class="flex grid grid-cols-none lg:grid-cols-2 gap-2 h-full">
+      <div>
+        <p class="text-center">Graph</p>
       <div
-        class="svg-container mx-2 border-2 border-indigo-200 p-4 rounded overflow-hidden shadow-lg"
+        class="svg-container mx-2 border-2  p-4 rounded  bg-gray-800"
         :style="{ width: settings.width + '%' }"
       >
         <svg
@@ -15,49 +51,20 @@
           <g :id="nodes"></g>
         </svg>
       </div>
+      </div>
+
+      <div>
+        <p class="text-center">Adjacency Matrix</p>
       <div
         id="svg-adjancency-matrix"
-        class="svg-container mx-2 border-2 border-indigo-200 p-4 rounded overflow-hidden shadow-lg"
+        class="svg-container mx-2 border-2 p-4 rounded bg-gray-100"
         :style="{ width: settings.width + '%' }"
       >
-
+      </div>
       </div>
     </div>
 
-    <div class="max-w-sm rounded overflow-hidden shadow-lg">
-      <div class="px-6 py-4">
-        <div class="font-bold text-xl mb-2">Graftit</div>
-        <div>
-          <p>Toggle edit mode : {{ shiftKeySymbol }}</p>
-          <p>Add node by clicking</p>
-          <p>Click and drag to add an edge</p>
-          <p>Delete Node : Delete</p>
-        </div>
-        <div>
-          <label>Adjust width</label>
-          <input type="range" v-model="settings.width" min="0" max="100" />
-        </div>
-        <button
-          class="bg-transparent hover:bg-blue-500 text-blue-700 font-semibold hover:text-white p-16 border border-blue-500 hover:border-transparent rounded"
-          v-on:click="forceLayout"
-        >
-          ForceLayout
-        </button>
-        <div>
-          <input type="checkbox" id="checkbox-directed" v-model="directed" />
-          <label v-if="directed" for="checkbox"> Directed </label>
-          <label v-else for="checkbox"> Undirected </label>
-        </div>
-        <div>
-          <button
-            class="bg-blue-500 hover:bg-blue-700 text-white font-bold p-16 border border-blue-700 rounded"
-            v-on:click="resetGraph"
-          >
-            Reset Graph
-          </button>
-        </div>
-      </div>
-    </div>
+  </div>
   </div>
 </template>
 <script>
@@ -85,11 +92,9 @@ export default {
       directed: false,
       shiftKeySymbol: `<shift>`,
       zoomMatrix: d3.zoom(),
-      value: 'console.log("Hello, World");',
     };
   },
   mounted: function() {
-    console.log("mounted");
     d3.select(window).on("keydown", keydown);
     var svg = d3.select("svg");
     var svgMatrix = d3
@@ -116,9 +121,7 @@ export default {
       .on("mousedown", function() {
         if (that.edit_mode) {
           var pointer = d3.pointer(event, svg.node());
-          //console.log("pointer :", pointer[0], pointer[1]);
           that.transformation = d3.select(".nodes").attr("transform");
-          //console.log("transfo :::", that.transforms);
           var newNode = {
             x:
               (pointer[0] - that.transforms.translateX) /
@@ -171,7 +174,6 @@ export default {
       .style("font-size", "2em")
       .text("");
     function keydown(event) {
-      console.log("keydown : ", event.keyCode);
       switch (event.keyCode) {
         case 16: {
           // shift
@@ -228,7 +230,6 @@ export default {
   computed: {
     nodes: function() {
       var that = this;
-      //console.log("calculatednodes");
       if (that.graph) {
         d3.selectAll("circle").remove();
         return d3
@@ -248,16 +249,12 @@ export default {
             }
           })
           .on("mousedown", function(event, d) {
-            //console.log("on mouse down", event, d);
             if (that.edit_mode) {
               that.selectedNode = d;
               if (!d.active) that.simulation.alphaTarget(0).restart();
-              //console.log("selected :", d);
             }
           })
           .on("mouseover", function(event, d) {
-            //console.log("mouseovernode", event, d);
-            // pop up if not drag
             if (that.edit_mode) {
               that.selectedTargetNode = d;
             }
@@ -271,7 +268,6 @@ export default {
             d3
               .drag()
               .on("start", function dragstarted(event, d) {
-                //console.log("dragstart", d);
                 if (!that.edit_mode) {
                   if (!d.active) that.simulation.alphaTarget(0.3).restart();
                   d.fx = d.x;
@@ -279,14 +275,12 @@ export default {
                 }
               })
               .on("drag", function dragged(event, d) {
-                //console.log("drag", event, d)
                 if (!that.edit_mode) {
                   d.fx = event.x;
                   d.fy = event.y;
                 }
               })
               .on("end", function dragended(event, d) {
-                //console.log("end", event, d);
                 if (!that.edit_mode) {
                   if (!d.active) that.simulation.alphaTarget(0);
                   d.fx = null;
@@ -296,14 +290,11 @@ export default {
                     d != that.selectedTargetNode ||
                     d == that.selectedTargetNode
                   ) {
-                    //console.log("end drag", that.selectedNode);
                     if (that.selectedTargetNode == null) {
                       var pointer = d3.pointer(event, d3.select("svg").node());
-                      //console.log("pointer :", pointer[0], pointer[1]);
                       that.transformation = d3
                         .select(".nodes")
                         .attr("transform");
-                      //console.log("transfo :::", that.transforms);
                       var newNode = {
                         x:
                           (pointer[0] - that.transforms.translateX) /
@@ -326,7 +317,6 @@ export default {
                         target: that.selectedTargetNode,
                         weight: 1,
                       });
-                      //console.log(that.graph.links);
                     }
                     that.selectedNode = null;
                   }
@@ -337,7 +327,6 @@ export default {
       return {};
     },
     links: function() {
-      //console.log("calculatedlinks");
       var that = this;
       if (that.graph) {
         d3.selectAll("line").remove();
@@ -410,12 +399,12 @@ export default {
     //https://bl.ocks.org/KingOfCramers/32bbcd8c360e6d8aa0d5b7a50725fe73
     adjacencyMatrix: function() {
       let that = this;
-      //console.log("recalc adjacencyMatrix");
+
       d3.select("#svg-adjancency-matrix")
         .select("svg")
         .selectAll("g")
         .remove();
-      //console.log("not recalc?", that.graph.nodes, that.graph.edges)
+
 
       let edgeHash = {};
       if (!that.graph.nodes) {
@@ -452,8 +441,7 @@ export default {
     },
   },
   updated: function() {
-    console.log("updated");
-    //console.log(that.links)
+
     var that = this;
     var linksCopy = that.links;
     linksCopy.sort(function(a, b) {
